@@ -188,16 +188,15 @@ class Client(object):
             if 'content-type' in headers:
                 del headers['content-type']
 
-        #TODO: Context manager
-        requestBody = RequestBody(bodyData, headers)
-        conn = self.get_connection()
-        conn.request(method, url, requestBody.process(), headers)
-        response = conn.getresponse()
-        status = response.status
-        content = ResponseBody(response)
-        self.headers = response.getheaders()
+        # Context manager to handle requests
+        with connectionManager(self) as conn:
+            requestBody = RequestBody(bodyData, headers)
+            conn.request(method, url, requestBody.process(), headers)
+            response = conn.getresponse()
+            status = response.status
+            content = ResponseBody(response)
+            self.headers = response.getheaders()
 
-        conn.close()
         return status, content.processBody()
 
     def _fix_headers(self, headers):
@@ -411,3 +410,19 @@ class ConnectionProperties(object):
                 newHeaders[header] = headers[header]
 
         return newHeaders
+
+class connectionManager(object):
+    '''
+    Context manager for handling connections in client.request
+    '''
+    def __init__(self, client):
+        self.conn = client.get_connection()
+
+    def __enter__(self):
+        return self.conn
+    
+    def __exit__(self, exc_type, exc_value, traceback): 
+        self.conn.close()
+
+
+
